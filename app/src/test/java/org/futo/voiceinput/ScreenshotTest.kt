@@ -19,10 +19,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onRoot
+import androidx.activity.ComponentActivity
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import android.graphics.Canvas
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -52,7 +51,7 @@ import java.io.File
 @Config(sdk = [34], qualifiers = "w411dp-h1200dp-xxhdpi")
 class ScreenshotTest {
     @get:Rule
-    val compose = createComposeRule()
+    val compose = createAndroidComposeRule<ComponentActivity>()
 
     private fun capture(name: String, content: @Composable () -> Unit) {
         // Screens have endless animations (mic pulse, progress), so drive the clock by hand
@@ -71,7 +70,14 @@ class ScreenshotTest {
             Thread.sleep(25)
         }
 
-        val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
+        // captureToImage() waits for a redraw that never happens under Robolectric,
+        // so draw the window's view tree into a bitmap directly.
+        val bitmap = compose.runOnUiThread {
+            val view = compose.activity.window.decorView.rootView
+            Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also {
+                view.draw(Canvas(it))
+            }
+        }
         val dir = File("screenshots").apply { mkdirs() }
         File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         println("Wrote ${File(dir, "$name.png").absolutePath}")

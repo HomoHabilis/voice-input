@@ -1,5 +1,5 @@
 // JNI bridge to the Cactus Needle engine, which runs the Whistle speech-to-text model.
-// The C API below mirrors the ctypes bindings in cactus-compute/needle (needle/agent/whistle.py).
+// The C API is declared in needle.h, published with the engine on Hugging Face.
 // When the build has no libneedle (HAVE_NEEDLE undefined), the functions report it as unavailable.
 
 #include <jni.h>
@@ -11,12 +11,7 @@
 #include <vector>
 
 #ifdef HAVE_NEEDLE
-extern "C" {
-int needle_load(const char *data, uint64_t size);
-int needle_transcribe(const float *samples, int count, const char *language,
-                      const char *keywords, int word_timestamps, char *out, int out_size);
-const char *needle_last_error(void);
-}
+#include "needle.h"  // shipped next to libneedle.a, see scripts/fetch-native-deps.sh
 #endif
 
 static std::string g_last_error;
@@ -60,7 +55,8 @@ Java_org_futo_voiceinput_engines_WhistleNative_load(JNIEnv *env, jobject, jstrin
     fclose(f);
     if (read != data.size()) return env->NewStringUTF("could not read model file");
 
-    if (needle_load(data.data(), static_cast<uint64_t>(data.size())) < 0) {
+    if (needle_load(reinterpret_cast<const unsigned char *>(data.data()),
+                    static_cast<unsigned long long>(data.size())) < 0) {
         const char *err = needle_last_error();
         g_last_error = err ? err : "needle_load failed";
         return env->NewStringUTF(g_last_error.c_str());

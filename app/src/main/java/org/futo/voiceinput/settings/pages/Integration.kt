@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -86,13 +87,23 @@ private fun Section(title: String, status: String? = null, content: @Composable 
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = Typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (status != null) {
-                Text(status, style = Typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                // The theme's primary is too dim on surfaceVariant; use the readable variant color
+                Text(
+                    status,
+                    style = Typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
             Spacer(modifier = Modifier.height(6.dp))
             content()
         }
     }
 }
+
+@Composable
+private fun outlinedColors() =
+    ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
 
 @Composable
 private fun Body(text: String) {
@@ -148,7 +159,7 @@ fun IntegrationScreenContent(
             Body("Closest to Gboard habits: swipe typing, good predictions, offline and private. Its mic key can open this app, so you get Parakeet or Whistle on the keyboard's own mic key.")
             Body("Setup: in FUTO Keyboard settings, open the voice input options and turn off built-in voice input. The mic key then uses this app.")
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = { onOpenUrl("https://keyboard.futo.org/") }) {
+            OutlinedButton(colors = outlinedColors(), onClick = { onOpenUrl("https://keyboard.futo.org/") }) {
                 Text("Get FUTO Keyboard")
             }
         }
@@ -163,7 +174,7 @@ fun IntegrationScreenContent(
         ) {
             Body("Its mic key switches to this app's voice keyboard automatically (turn on the voice keyboard below). Swipe typing needs an extra library you add yourself.")
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = { onOpenUrl("https://github.com/Helium314/HeliBoard") }) {
+            OutlinedButton(colors = outlinedColors(), onClick = { onOpenUrl("https://github.com/Helium314/HeliBoard") }) {
                 Text("Get HeliBoard")
             }
         }
@@ -174,7 +185,7 @@ fun IntegrationScreenContent(
         ) {
             Body("Needed for HeliBoard, AOSP and similar keyboards. Also works from Gboard: turn on Gboard's language switch key, then long-press it (or the space bar) and pick FUTO Voice Input. It records, types the text and switches back.")
             Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = onOpenKeyboardSettings) {
+            OutlinedButton(colors = outlinedColors(), onClick = onOpenKeyboardSettings) {
                 Text("Keyboard settings")
             }
         }

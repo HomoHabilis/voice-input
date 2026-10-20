@@ -1,3 +1,30 @@
+# FUTO Voice Input, custom build: Parakeet + Whistle + Whisper
+
+This fork adds two newer on-device speech engines next to the original Whisper, and a floating mic that works with Gboard.
+
+| Engine | Best for | Download on phone |
+|---|---|---|
+| **Parakeet TDT 0.6B v3** (NVIDIA, via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)) | Best accuracy and speed; English + 24 European languages | ~640 MB |
+| **Whistle** ([Cactus](https://github.com/cactus-compute/needle)) | Smallest and fastest; en, de, fr, es, it, nl, pl; uses the personal dictionary as keywords | 17 MB |
+| **Whisper** (OpenAI, via whisper.cpp) | 99 languages | 44-250 MB |
+
+Pick the engine in the app under **Model**. No model is bundled in the APK (about 45 MB, mostly the engines themselves). Each model downloads the first time you use it, and everything runs offline after that. Under **Model**, **Check for updates** compares your copy with the server and downloads a newer version if there is one. **Delete model** frees the space.
+
+**Using it with your keyboard** (in the app under **Keyboard integration**):
+- **Gboard**: Gboard always sends its own mic key to Google. Turn on the **floating mic** (an accessibility service). A mic bubble then appears above the keyboard, and the transcript is typed at your cursor. You can also switch to the "FUTO Voice Input" keyboard from Gboard's language key.
+- **FUTO Keyboard** (closest to Gboard: swipe typing, good predictions): turn off its built-in voice input and its mic key will use this app.
+- **HeliBoard** and other open-source keyboards: their mic key opens this app's voice keyboard.
+
+**Make a release**: on GitHub, open **Actions → Build APK → Run workflow**, pick the branch, type a version such as `1.2.1` (and optional notes), and run it. The workflow builds the APK with that version and publishes release `v1.2.1` with `voice-input-custom-1.2.1.apk`, install steps and the APK's SHA-256. Each release gets a higher version code, so it installs as an update. Leave the version empty for a test build.
+
+**Test builds**: every push builds `voice-input-custom.apk` and attaches it to a pre-release named `build-<branch>`.
+
+The app id is `org.futo.voiceinput.custom`, so it installs next to the official app. To keep updates installing over each other, add your own signing key as the `KEYSTORE_FILE` (base64), `KEYSTORE_PASSWORD`, `KEY_PASSWORD` and `KEYSTORE_ALIAS` repository secrets. Otherwise a cached debug key is used.
+
+**Build locally**: `git submodule update --init libs && ./scripts/fetch-native-deps.sh && ./gradlew assembleCustomRelease`. `./gradlew testCustomDebugUnitTest --tests org.futo.voiceinput.ScreenshotTest` renders the screens to `app/screenshots/` without a phone; the latest ones are in [docs/screenshots](docs/screenshots).
+
+---
+
 # FUTO Voice Input
 
 FUTO Voice Input is an application that lets you do speech-to-text on Android, integrating with third party keyboards or apps that use the generic speech-to-text APIs.

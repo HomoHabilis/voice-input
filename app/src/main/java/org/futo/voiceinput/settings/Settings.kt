@@ -150,3 +150,9 @@ val THEME_KEY = SettingsKey(
 val BEAM_SEARCH = SettingsKey(key = booleanPreferencesKey("use_beam_search"), default = true)
 val MODELS_MIGRATED = SettingsKey(key = booleanPreferencesKey("models_migrated_1"), default = false)
 val DISMISS_MIGRATION_TIP = SettingsKey(key = booleanPreferencesKey("dismiss_migration_tip"), default = false)
+// Which speech engine to use, see org.futo.voiceinput.engines.SpeechEngine (1 = Parakeet v3)
+val SPEECH_ENGINE = SettingsKey(key = intPreferencesKey("speech_engine"), default = 1)
+
+// Floating mic bubble shown over other keyboards (e.g. Gboard) by FloatingMicService
+val FLOATING_MIC_X = SettingsKey(key = intPreferencesKey("floating_mic_x"), default = -1)
+val FLOATING_MIC_Y = SettingsKey(key = intPreferencesKey("floating_mic_y"), default = -1)

@@ -214,4 +214,14 @@
     <string name="commitment_to_privacy_title">Commitment to Privacy</string>
     <string name="commitment_to_privacy_body">This app will never serve you ads or sell your data. We are not in the business of doing that.</string>
 
+
+    <!-- Speech engines, floating mic and keyboard integration -->
+    <string name="floating_mic_service_label">FUTO Voice Input floating mic</string>
+    <string name="floating_mic_service_summary">Shows a mic button above any keyboard, including Gboard</string>
+    <string name="floating_mic_service_description">Shows a small mic button above your keyboard whenever you are typing in a text field. Tap it to dictate with on-device speech recognition (Parakeet, Whistle or Whisper); the text is inserted at your cursor. Drag the button to move it, long-press to hide it for the current field.\n\nTo do this, the service needs to know which text field is focused and whether a keyboard is open, and it inserts the transcript into that field. Nothing is sent off your device.</string>
+    <string name="floating_mic_content_description">Dictate with FUTO Voice Input</string>
+    <string name="floating_mic_hidden_for_field">Mic hidden for this text field</string>
+    <string name="floating_mic_copied">Could not type into this field, the text was copied to the clipboard</string>
+    <string name="keyboard_integration">Keyboard integration</string>
+    <string name="keyboard_integration_subtitle">Use with Gboard, FUTO Keyboard or HeliBoard</string>
 </resources>

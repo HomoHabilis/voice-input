@@ -28,7 +28,14 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags '-O3'
+                // Shared runtime so the prebuilt engines (sherpa-onnx, Cactus Needle) can use it too
+                arguments '-DANDROID_STL=c++_shared'
             }
+        }
+
+        ndk {
+            // Pixel and other modern phones. Parakeet/Whistle prebuilt engines are fetched for arm64.
+            abiFilters 'arm64-v8a'
         }
     }
 
@@ -95,6 +102,27 @@ android {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
+        jniLibs {
+            // sherpa-onnx's prebuilt libs may ship their own copy
+            pickFirsts += ['**/libc++_shared.so']
+            // Keep native libraries uncompressed and page-aligned (faster loading of large engines)
+            useLegacyPackaging false
+        }
+    }
+
+    testOptions {
+        unitTests {
+            // Robolectric screenshot tests (app/src/test) need resources
+            includeAndroidResources = true
+            all {
+                systemProperty 'robolectric.graphicsMode', 'NATIVE'
+                maxHeapSize = '3g'
+                testLogging {
+                    events 'failed'
+                    exceptionFormat 'full'
+                }
+            }
+        }
     }
 
     flavorDimensions "version"
@@ -120,6 +148,20 @@ android {
         devSameId {
             dimension "version"
             versionNameSuffix "-devSameId"
+        }
+
+        // Personal build with Parakeet/Whistle engines and the floating mic.
+        // Separate app id so it installs next to the official FUTO Voice Input.
+        custom {
+            dimension "version"
+            applicationIdSuffix ".custom"
+            // The release workflow passes -PappVersionName=1.2.1 -PappVersionCode=<n>
+            if (project.hasProperty('appVersionName')) {
+                versionName project.property('appVersionName')
+                versionCode project.property('appVersionCode').toInteger()
+            } else {
+                versionNameSuffix "-custom"
+            }
         }
     }
 
@@ -173,6 +215,16 @@ android {
             java.srcDir 'src/nonDev/java'
         }
 
+        custom {
+            // No FUTO update checks: this build is not published by FUTO
+            java.srcDir 'src/withoutUpdateChecking/java'
+
+            java.srcDir 'src/payPalBilling/java'
+            res.srcDir 'src/payPalBilling/res'
+
+            java.srcDir 'src/nonDev/java'
+        }
+
         standalone {
             // It is our responsibility to handle updates
             java.srcDir 'src/withUpdateChecking/java'
@@ -219,6 +271,14 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1'
 
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+    testImplementation platform('androidx.compose:compose-bom:2022.10.00')
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    // Espresso 3.5 (pulled in by the old Compose test lib) fails under Robolectric on SDK 34
+    // with IllegalAccessException in ThreadPoolExecutorExtractor; 3.6 fixes it.
+    testImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+    testImplementation 'androidx.test:core:1.6.1'
+    testImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
     androidTestImplementation platform('androidx.compose:compose-bom:2022.10.00')

@@ -135,6 +135,14 @@ fun HomeScreen(
         )
 
         NavigationItem(
+            title = stringResource(R.string.keyboard_integration),
+            subtitle = stringResource(R.string.keyboard_integration_subtitle),
+            style = NavigationItemStyle.Misc,
+            navigate = { navController.navigate("integration") },
+            icon = painterResource(R.drawable.mic_small)
+        )
+
+        NavigationItem(
             title = stringResource(R.string.input_options),
             style = NavigationItemStyle.Misc,
             navigate = { navController.navigate("input") },

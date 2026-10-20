@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Custom build: the voice subtype is NOT auxiliary, so the voice keyboard appears in Android's
+     keyboard switcher (Gboard's globe / space-bar long-press, or the keyboard icon in the
+     navigation bar). It records, types the text, then switches back to the previous keyboard. -->
+<input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    android:settingsActivity="org.futo.voiceinput.settings.SettingsActivity">
+    <subtype
+        android:label="@string/voice_input"
+        android:imeSubtypeLocale=""
+        android:imeSubtypeMode="voice"
+        android:isAuxiliary="false"
+        android:overridesImplicitlyEnabledSubtype="true" />
+</input-method>

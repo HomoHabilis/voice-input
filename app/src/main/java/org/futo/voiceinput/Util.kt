@@ -134,6 +134,28 @@ fun Context.startModelDownloadActivity(models: List<ModelData>) {
     startActivity(intent)
 }
 
+/**
+ * Downloads an engine's missing model files, or with [updateFiles] re-downloads those files
+ * (used when a newer version is on the server).
+ */
+fun Context.startEngineDownloadActivity(
+    engine: org.futo.voiceinput.engines.SpeechEngine,
+    updateFiles: List<String>? = null
+) {
+    val files = updateFiles ?: engine.files.map { it.name }.filter { fileNeedsDownloading(it) }
+    if(files.isEmpty()) return
+
+    val intent = Intent(this, DownloadActivity::class.java)
+    intent.putStringArrayListExtra("models", ArrayList(files))
+    intent.putExtra("force", updateFiles != null)
+
+    if(this !is Activity) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    startActivity(intent)
+}
+
 fun <T> Context.startAppActivity(activity: Class<T>, clearTop: Boolean = false) {
     val intent = Intent(this, activity)
 
@@ -252,8 +274,9 @@ val ENGLISH_MODELS = listOf(
         name = "English-39 (default)",
 
         ggml = ModelDataGGML(
-            is_builtin_asset = true,
-            ggml_file = "tiny_en_acft_q8_0.bin.not.tflite",
+            // Downloaded on first use instead of embedded (it was 43 MB of the APK)
+            is_builtin_asset = false,
+            ggml_file = "tiny_en_acft_q8_0.bin",
             digest = "4b5480aa1b14a7efc5b578ef176510970a898049671c3cd237285b3e3f6bfbfc"
         ),
 

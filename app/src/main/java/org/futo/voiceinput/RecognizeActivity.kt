@@ -36,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.LifecycleCoroutineScope
 import androidx.lifecycle.lifecycleScope
+import org.futo.voiceinput.floating.FloatingMicService
 import org.futo.voiceinput.migration.scheduleModelMigrationJob
 import org.futo.voiceinput.settings.pages.ConditionalUnpaidNoticeInVoiceInputWindow
 import org.futo.voiceinput.theme.UixThemeAuto
@@ -162,7 +163,12 @@ class RecognizeActivity : ComponentActivity() {
             }
         }
     }
+    // Set when the floating mic bubble (FloatingMicService) started this dictation
+    private val fromFloatingMic: Boolean
+        get() = intent?.getBooleanExtra(FloatingMicService.EXTRA_FROM_FLOATING_MIC, false) == true
+
     private fun onCancel() {
+        if (fromFloatingMic) FloatingMicService.deliverCancelled()
         setResult(RESULT_CANCELED, null)
         finish()
     }
@@ -180,6 +186,9 @@ class RecognizeActivity : ComponentActivity() {
         super.onDestroy()
 
         recognizer.reset()
+
+        // No-op if a result was already delivered
+        if (fromFloatingMic) FloatingMicService.deliverCancelled()
     }
 
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -194,6 +203,8 @@ class RecognizeActivity : ComponentActivity() {
     }
 
     private fun sendResult(result: String) {
+        if (fromFloatingMic) FloatingMicService.deliverResult(result)
+
         val returnIntent = Intent()
 
         val results = listOf(result)

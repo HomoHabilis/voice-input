@@ -32,6 +32,8 @@ import org.futo.voiceinput.settings.MANUALLY_SELECT_LANGUAGE
 import org.futo.voiceinput.settings.MODELS_MIGRATED
 import org.futo.voiceinput.settings.MULTILINGUAL_MODEL_INDEX
 import org.futo.voiceinput.settings.PERSONAL_DICTIONARY
+import org.futo.voiceinput.settings.SPEECH_ENGINE
+import org.futo.voiceinput.engines.SpeechEngine
 import org.futo.voiceinput.settings.ScreenTitle
 import org.futo.voiceinput.settings.ScrollableList
 import org.futo.voiceinput.settings.SettingRadio
@@ -45,6 +47,15 @@ import org.futo.voiceinput.startModelDownloadActivity
 
 @Composable
 fun modelsSubtitle(): String? {
+    val (engineId, _) = useDataStore(SPEECH_ENGINE)
+    val engine = SpeechEngine.fromId(engineId)
+    if (engine != SpeechEngine.Whisper) return engine.shortName
+
+    return listOfNotNull("Whisper", whisperModelsSubtitle()).joinToString(" · ")
+}
+
+@Composable
+fun whisperModelsSubtitle(): String? {
     val (languages, _) = useDataStore(LANGUAGE_TOGGLES)
     val (useLanguageSpecificModels, _) = useDataStore(USE_LANGUAGE_SPECIFIC_MODELS)
 
@@ -124,9 +135,12 @@ fun PersonalDictionaryEditor(disabled: Boolean) {
 @Preview
 fun ModelsScreen(
     settingsViewModel: SettingsViewModel = viewModel(),
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    engineSelector: @Composable () -> Unit = { EngineSelector() }
 ) {
     val (useMultilingual, _) = useDataStore(ENABLE_MULTILINGUAL)
+    val (engineId, _) = useDataStore(SPEECH_ENGINE)
+    val isWhisper = SpeechEngine.fromId(engineId) == SpeechEngine.Whisper
 
     val englishModelIndex = useDataStore(ENGLISH_MODEL_INDEX)
     val multilingualModelIndex = useDataStore(MULTILINGUAL_MODEL_INDEX)
@@ -141,7 +155,9 @@ fun ModelsScreen(
     val dismissMigrationTip = useDataStore(setting = DISMISS_MIGRATION_TIP)
 
     val launchDownloaderIfNecessary = {
-        if (useMultilingual) {
+        if (!isWhisper) {
+            // EngineSelector handles downloads for the other engines
+        } else if (useMultilingual) {
             context.startModelDownloadActivity(
                 listOf(
                     ENGLISH_MODELS[englishModelIndex.value],
@@ -153,7 +169,7 @@ fun ModelsScreen(
         }
     }
 
-    LaunchedEffect(listOf(useMultilingual, englishModelIndex.value, multilingualModelIndex.value)) {
+    LaunchedEffect(listOf(isWhisper, useMultilingual, englishModelIndex.value, multilingualModelIndex.value)) {
         launchDownloaderIfNecessary()
     }
 
@@ -167,6 +183,10 @@ fun ModelsScreen(
             Tip(stringResource(R.string.new_model_features_tip), onDismiss = { dismissMigrationTip.setValue(true) })
         }
 
+        engineSelector()
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         if(languages.size > 1) {
             SettingToggleDataStore(
                 stringResource(R.string.manually_select_language),
@@ -175,30 +195,32 @@ fun ModelsScreen(
             )
         }
 
-        if(!needsUpdate) {
+        if(!needsUpdate && SpeechEngine.fromId(engineId) != SpeechEngine.Parakeet) {
             PersonalDictionaryEditor(disabled = false)
 
             Spacer(modifier = Modifier.height(32.dp))
         }
 
-        if (useMultilingual) {
-            SettingRadio(
-                stringResource(R.string.multilingual_model),
-                MULTILINGUAL_MODELS.indices.toList(),
-                MULTILINGUAL_MODELS.map { it.name },
-                MULTILINGUAL_MODEL_INDEX
-            )
-        }
+        if (isWhisper) {
+            if (useMultilingual) {
+                SettingRadio(
+                    stringResource(R.string.multilingual_model),
+                    MULTILINGUAL_MODELS.indices.toList(),
+                    MULTILINGUAL_MODELS.map { it.name },
+                    MULTILINGUAL_MODEL_INDEX
+                )
+            }
 
-        if((!useMultilingual) || (languages.contains("en") && useLanguageSpecificModels)) {
-            SettingRadio(
-                stringResource(R.string.english_model),
-                ENGLISH_MODELS.indices.toList(),
-                ENGLISH_MODELS.map { it.name },
-                ENGLISH_MODEL_INDEX
-            )
-        }
+            if((!useMultilingual) || (languages.contains("en") && useLanguageSpecificModels)) {
+                SettingRadio(
+                    stringResource(R.string.english_model),
+                    ENGLISH_MODELS.indices.toList(),
+                    ENGLISH_MODELS.map { it.name },
+                    ENGLISH_MODEL_INDEX
+                )
+            }
 
-        Tip(stringResource(R.string.parameter_count_tip))
+            Tip(stringResource(R.string.parameter_count_tip))
+        }
     }
 }

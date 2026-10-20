@@ -1,0 +1,130 @@
+name: Release
+
+# Run from Actions → Release → Run workflow, with a version such as 1.2.1.
+# It builds the APK with that version (via build.yml) and publishes release v1.2.1 with the APK,
+# the commits since the previous release, GitHub's list of merged pull requests and install steps.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version, e.g. 1.2.1 (creates tag and release v1.2.1)"
+        required: true
+      notes:
+        description: "Optional highlights shown at the top of the release notes"
+        required: false
+        default: ""
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Check version
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${INPUT_VERSION#v}"
+          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,3}([-.][0-9A-Za-z.]+)?$ ]]; then
+            echo "::error::Version '$INPUT_VERSION' should look like 1.2.1"; exit 1
+          fi
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1 \
+             || git ls-remote --exit-code --tags "https://github.com/$GITHUB_REPOSITORY" "refs/tags/v$VERSION" > /dev/null 2>&1; then
+            echo "::error::v$VERSION already exists. Pick a new version."; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: check
+    uses: ./.github/workflows/build.yml
+    with:
+      version: ${{ needs.check.outputs.version }}
+    secrets: inherit
+
+  publish:
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk
+          path: dist
+
+      - name: Write release notes
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: |
+          apk="voice-input-custom-$VERSION.apk"
+          mv dist/*.apk "$apk"
+          echo "APK=$apk" >> "$GITHUB_ENV"
+          sha=$(sha256sum "$apk" | cut -d' ' -f1)
+
+          previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+          echo "PREVIOUS_TAG=$previous" >> "$GITHUB_ENV"
+          if [ -n "$previous" ]; then
+            changes=$(git log --no-merges --format='- %s (%h)' "$previous..HEAD" | head -50)
+            since="since $previous"
+          else
+            changes=$(git log --no-merges --format='- %s (%h)' -30)
+            since="(latest commits)"
+          fi
+
+          {
+            if [ -n "$NOTES" ]; then echo "## Highlights"; echo; echo "$NOTES"; echo; fi
+            echo "## Changes $since"
+            echo
+            echo "${changes:-- No code changes}"
+            echo
+            echo "## Install"
+            echo "1. Download **$apk** below on your phone and open it (allow installs from your browser if asked)."
+            echo "2. Open **Voice Input (custom)** and follow the setup."
+            echo "3. Under **Model**, pick a speech engine. Its model downloads the first time:"
+            echo "   - **Parakeet TDT 0.6B v3**: best accuracy, about 640 MB"
+            echo "   - **Whistle**: 17 MB, fastest; en, de, fr, es, it, nl, pl"
+            echo "   - **Whisper**: 99 languages"
+            echo "4. Under **Keyboard integration**, turn on the floating mic (Gboard) or set up FUTO Keyboard."
+            echo
+            echo "App id \`org.futo.voiceinput.custom\` (installs next to the official FUTO Voice Input). arm64 phones only."
+            echo
+            echo "## Build"
+            echo "- App version: ${{ needs.build.outputs.version_name }}"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- SHA-256: \`$sha\`"
+            echo
+          } > notes.md
+          cat notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # --generate-notes appends GitHub's list of merged pull requests and a compare link
+          gh release create "v$VERSION" "$APK" --target "$GITHUB_SHA" --title "Voice Input $VERSION" \
+            --notes-file notes.md --generate-notes ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"} --latest
+          echo "### Release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/v$VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      # Earlier versions of the CI published a rolling "build-<branch>" pre-release on every push
+      - name: Remove old test-build pre-releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | grep '^build-' | while read -r tag; do
+            echo "Deleting $tag"; gh release delete "$tag" --yes --cleanup-tag || true
+          done

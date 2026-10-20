@@ -6,9 +6,9 @@ This fork adds two newer on-device speech engines next to the original Whisper, 
 |---|---|---|
 | **Parakeet TDT 0.6B v3** (NVIDIA, via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)) | Best accuracy and speed; English + 24 European languages | ~640 MB |
 | **Whistle** ([Cactus](https://github.com/cactus-compute/needle)) | Smallest and fastest; en, de, fr, es, it, nl, pl; uses the personal dictionary as keywords | 17 MB |
-| **Whisper** (OpenAI, via whisper.cpp) | 99 languages | 40-250 MB |
+| **Whisper** (OpenAI, via whisper.cpp) | 99 languages | 44-250 MB |
 
-Pick the engine in the app under **Model**. The model downloads the first time you use it, and everything runs offline after that.
+Pick the engine in the app under **Model**. No model is bundled in the APK (about 45 MB, mostly the engines themselves). Each model downloads the first time you use it, and everything runs offline after that. Under **Model**, **Check for updates** compares your copy with the server and downloads a newer version if there is one. **Delete model** frees the space.
 
 **Using it with your keyboard** (in the app under **Keyboard integration**):
 - **Gboard**: Gboard always sends its own mic key to Google. Turn on the **floating mic** (an accessibility service). A mic bubble then appears above the keyboard, and the transcript is typed at your cursor. You can also switch to the "FUTO Voice Input" keyboard from Gboard's language key.

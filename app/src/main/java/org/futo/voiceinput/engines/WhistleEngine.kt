@@ -70,6 +70,11 @@ class WhistleEngine private constructor(private val languages: Set<String>) : Tr
     companion object {
         private var loaded = false
 
+        /** The next load() reads the model file again (e.g. after an update). */
+        fun unload() {
+            loaded = false
+        }
+
         internal fun parseText(json: String): String =
             Json.parseToJsonElement(json).jsonObject["text"]?.jsonPrimitive?.content?.trim() ?: ""
 

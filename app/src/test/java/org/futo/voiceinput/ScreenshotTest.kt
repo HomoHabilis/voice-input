@@ -97,6 +97,11 @@ class ScreenshotTest {
     fun models() = capture("02-speech-engine") { ModelsScreen(engineSelector = previewEngineSelector) }
 
     @Test
+    fun modelsDownloaded() = capture("02b-speech-engine-downloaded") {
+        ModelsScreen(engineSelector = { EngineSelector(isBundled = { true }, isDownloaded = { true }) })
+    }
+
+    @Test
     fun keyboardIntegration() = capture("03-keyboard-integration") {
         IntegrationScreenContent(
             state = IntegrationState(

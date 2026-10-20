@@ -38,6 +38,8 @@ import okhttp3.Request
 import okhttp3.Response
 import org.futo.voiceinput.R
 import org.futo.voiceinput.engines.modelUrlFor
+import org.futo.voiceinput.engines.modelVersionTag
+import org.futo.voiceinput.engines.saveModelVersion
 import org.futo.voiceinput.fileNeedsDownloading
 import org.futo.voiceinput.settings.ScreenTitle
 import org.futo.voiceinput.settings.ScrollableList
@@ -304,6 +306,7 @@ class DownloadActivity : ComponentActivity() {
                             file.copyTo(target, overwrite = true)
                             file.delete()
                         }
+                        this@DownloadActivity.saveModelVersion(it.name, response.modelVersionTag())
 
                         if (modelsToDownload.all { a -> a.finished }) {
                             downloadsFinished()
@@ -364,7 +367,9 @@ class DownloadActivity : ComponentActivity() {
         val models = intent.getStringArrayListExtra("models")
             ?: throw IllegalStateException("intent extra `models` must be specified for DownloadActivity")
 
-        modelsToDownload = models.filter { this.fileNeedsDownloading(it) }.map {
+        // force = re-download files that exist (model updates)
+        val force = intent.getBooleanExtra("force", false)
+        modelsToDownload = models.filter { force || this.fileNeedsDownloading(it) }.map {
             ModelInfo(
                 name = it,
                 url = modelUrlFor(it),

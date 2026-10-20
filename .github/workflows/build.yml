@@ -1,72 +1,71 @@
 name: Build APK
 
+# CI: builds the APK and renders the UI screenshots on every push. Results are kept as workflow
+# artifacts (download them from the run page). Nothing is published here; releases are made by
+# release.yml, which calls this workflow with a version.
+
 on:
   push:
     branches: ["**"]
     paths-ignore: ["docs/screenshots/**"]
   workflow_dispatch:
+  workflow_call:
     inputs:
       version:
-        description: "Release version, e.g. 1.2.1 (creates release v1.2.1). Leave empty for a test build."
+        description: "Release version (e.g. 1.2.1). Empty = development build."
+        type: string
         required: false
         default: ""
-      notes:
-        description: "Optional: what changed in this release"
-        required: false
-        default: ""
+    outputs:
+      version_name:
+        description: "The app version the APK was built with"
+        value: ${{ jobs.build.outputs.version_name }}
 
-# Test builds of the same branch replace each other; a release run has its own group, so it
-# never cancels (and is never cancelled by) the normal builds of master.
+# A newer push to the same branch replaces the running CI build. When release.yml calls this
+# workflow, github.workflow is "Release", so it runs in its own group and never cancels
+# (or is cancelled by) the normal CI builds.
 concurrency:
-  group: ${{ inputs.version != '' && inputs.version != null && format('release-{0}', inputs.version) || format('build-{0}', github.ref) }}
-  cancel-in-progress: ${{ inputs.version == '' || inputs.version == null }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: ${{ github.workflow == 'Build APK' }}
 
 permissions:
-  contents: write
-
-env:
-  VERSION: ${{ inputs.version }}
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    outputs:
+      version_name: ${{ steps.version.outputs.name }}
+    env:
+      VERSION: ${{ inputs.version }}
     steps:
-      - name: Check release version
-        if: env.VERSION != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="${VERSION#v}"
-          if ! [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,3}([-.][0-9A-Za-z.]+)?$ ]]; then
-            echo "::error::Version '$VERSION' should look like 1.2.1"; exit 1
-          fi
-          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            echo "::error::Release v$VERSION already exists. Pick a new version."; exit 1
-          fi
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # full history and tags: the version comes from the last v* tag
 
-      # Release: the version you typed. Other builds: last release tag + commits since, e.g.
-      # 0.1.0-dev.3+58aa471 (3 commits after v0.1.0). The version code grows with every run so a
-      # newer APK always installs over an older one.
+      # Release: the version given by release.yml. Other builds: last release tag + commits since,
+      # e.g. 0.1.0-dev.3+58aa471 (3 commits after v0.1.0).
+      # Version code: grows with the commit count, so a build from later code installs over an
+      # older one; a release outranks a development build of the same commit.
       - name: Work out app version
+        id: version
         run: |
           last_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+          commits=$(git rev-list --count HEAD)
           if [ -n "$VERSION" ]; then
-            name="$VERSION"
+            name="${VERSION#v}"
+            code=$((10000 + commits * 10 + 5))
           else
             base="${last_tag#v}"
-            count=$(git rev-list --count ${last_tag:+$last_tag..}HEAD)
-            name="${base:-0.0.0}-dev.${count}+$(git rev-parse --short HEAD)"
+            since=$(git rev-list --count ${last_tag:+$last_tag..}HEAD)
+            name="${base:-0.0.0}-dev.${since}+$(git rev-parse --short HEAD)"
+            code=$((10000 + commits * 10))
           fi
           echo "APP_VERSION_NAME=$name" >> "$GITHUB_ENV"
-          echo "APP_VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
-          echo "PREVIOUS_TAG=$last_tag" >> "$GITHUB_ENV"
-          echo "App version: $name (code $((1000 + GITHUB_RUN_NUMBER))), previous release: ${last_tag:-none}"
+          echo "APP_VERSION_CODE=$code" >> "$GITHUB_ENV"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "App version: $name (code $code)" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Fetch libs submodule (FUTO android-libs, has the VAD library)
         run: git submodule update --init libs && ls -la libs
@@ -93,7 +92,8 @@ jobs:
             https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main/decoder.int8.onnx \
             https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main/joiner.int8.onnx \
             https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main/tokens.txt \
-            https://huggingface.co/Cactus-Compute/whistle/resolve/main/whistle.cact; do
+            https://huggingface.co/Cactus-Compute/whistle/resolve/main/whistle.cact \
+            https://voiceinput.futo.org/VoiceInput/tiny_en_acft_q8_0.bin; do
             size=$(curl -sfIL "$url" | grep -i '^content-length' | tail -1 | tr -d '\r' | awk '{print $2}')
             echo "$url -> ${size:-MISSING} bytes"
             [ -n "$size" ]
@@ -117,7 +117,10 @@ jobs:
           key: debug-keystore-v1
 
       - name: Build APK
-        run: ./gradlew assembleCustomRelease -PappVersionName="$APP_VERSION_NAME" -PappVersionCode="$APP_VERSION_CODE" --stacktrace
+        run: |
+          ./gradlew assembleCustomRelease -PappVersionName="$APP_VERSION_NAME" -PappVersionCode="$APP_VERSION_CODE" --stacktrace
+          mkdir -p dist
+          cp app/build/outputs/apk/custom/release/app-custom-release.apk "dist/voice-input-custom-${APP_VERSION_NAME//+/_}.apk"
 
       - name: Check native libraries in APK
         run: |
@@ -132,84 +135,23 @@ jobs:
             echo "::warning::Whistle engine (libneedle) was not linked"
           fi
 
-      - name: Publish release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          NOTES: ${{ inputs.notes }}
-        run: |
-          apk_src=app/build/outputs/apk/custom/release/app-custom-release.apk
-          if [ -n "$VERSION" ]; then
-            tag="v$VERSION"; apk="voice-input-custom-$VERSION.apk"; title="Voice Input $VERSION"
-          else
-            # Test builds: one rolling pre-release per branch
-            tag="build-${GITHUB_REF_NAME//\//-}"; apk="voice-input-custom.apk"; title="Voice Input $APP_VERSION_NAME (test build, $GITHUB_REF_NAME)"
-            gh release delete "$tag" --yes --cleanup-tag || true
-          fi
-          cp "$apk_src" "$apk"
-          sha=$(sha256sum "$apk" | cut -d' ' -f1)
-
-          # Commits since the previous release (or the last 30 if there is none)
-          if [ -n "$PREVIOUS_TAG" ]; then
-            changes=$(git log --no-merges --format='- %s (%h)' "$PREVIOUS_TAG..HEAD" | head -50)
-            since="since $PREVIOUS_TAG"
-          else
-            changes=$(git log --no-merges --format='- %s (%h)' -30)
-            since="(latest commits)"
-          fi
-
-          {
-            if [ -n "$NOTES" ]; then echo "## Highlights"; echo; echo "$NOTES"; echo; fi
-            echo "## Changes $since"
-            echo
-            echo "${changes:-- No code changes}"
-            echo
-            echo "## Install"
-            echo "1. Download **$apk** below on your phone and open it (allow installs from your browser if asked)."
-            echo "2. Open **Voice Input (custom)** and follow the setup."
-            echo "3. Under **Model**, pick a speech engine. Its model downloads the first time:"
-            echo "   - **Parakeet TDT 0.6B v3**: best accuracy, about 640 MB"
-            echo "   - **Whistle**: 17 MB, fastest; en, de, fr, es, it, nl, pl"
-            echo "   - **Whisper**: 99 languages"
-            echo "4. Under **Keyboard integration**, turn on the floating mic (Gboard) or set up FUTO Keyboard."
-            echo
-            echo "App id \`org.futo.voiceinput.custom\` (installs next to the official FUTO Voice Input). arm64 phones only."
-            echo
-            echo "## Build"
-            echo "- App version: $APP_VERSION_NAME (version code $APP_VERSION_CODE)"
-            echo "- Commit: $GITHUB_SHA"
-            echo "- SHA-256: \`$sha\`"
-            echo
-          } > notes.md
-
-          if [ -n "$VERSION" ]; then
-            # --generate-notes appends GitHub's list of merged pull requests and a compare link
-            gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "$title" --notes-file notes.md \
-              --generate-notes ${PREVIOUS_TAG:+--notes-start-tag "$PREVIOUS_TAG"} --latest
-          else
-            gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "$title" --notes-file notes.md --prerelease
-          fi
-          echo "### Release: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$tag" >> "$GITHUB_STEP_SUMMARY"
+      # The APK is uploaded before the screenshot tests, so it is available even if they fail
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: dist/*.apk
+          if-no-files-found: error
 
       - name: Render screenshots (Robolectric)
         run: ./gradlew testCustomDebugUnitTest --tests 'org.futo.voiceinput.ScreenshotTest' --stacktrace
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload screenshots and test reports
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: voice-input-custom
+          name: screenshots
           path: |
-            app/build/outputs/apk/custom/release/*.apk
             app/screenshots/*.png
             app/build/reports/tests/
           if-no-files-found: warn
-
-      - name: Commit screenshots
-        run: |
-          mkdir -p docs/screenshots
-          cp app/screenshots/*.png docs/screenshots/
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/screenshots
-          if git diff --cached --quiet; then echo "Screenshots unchanged"; exit 0; fi
-          git commit -m "Update UI screenshots [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"

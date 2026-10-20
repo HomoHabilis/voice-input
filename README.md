@@ -15,9 +15,9 @@ Pick the engine in the app under **Model**. No model is bundled in the APK (abou
 - **FUTO Keyboard** (closest to Gboard: swipe typing, good predictions): turn off its built-in voice input and its mic key will use this app.
 - **HeliBoard** and other open-source keyboards: their mic key opens this app's voice keyboard.
 
-**Make a release**: on GitHub, open **Actions → Build APK → Run workflow**, pick the branch, type a version such as `1.2.1` (and optional notes), and run it. The workflow builds the APK with that version and publishes release `v1.2.1` with `voice-input-custom-1.2.1.apk`, install steps and the APK's SHA-256. Each release gets a higher version code, so it installs as an update. Leave the version empty for a test build.
+**Make a release**: on GitHub, open **Actions → Release → Run workflow**, type a version such as `1.2.1` (plus optional highlights), and run it. It builds the APK with that version and publishes release `v1.2.1`. The release has `voice-input-custom-1.2.1.apk`, the commits since the previous release, GitHub's list of merged pull requests, install steps and the APK's SHA-256. A release never cancels the normal CI build, and vice versa.
 
-**Test builds**: every push builds `voice-input-custom.apk` and attaches it to a pre-release named `build-<branch>`.
+**Test builds**: every push runs **Build APK**. It doesn't publish anything; the APK and the UI screenshots are attached to the run as artifacts (open the run in the Actions tab and scroll to Artifacts). Development builds are named after the last release, e.g. `0.1.0-dev.3+58aa471` (3 commits after v0.1.0). The version code grows with the commit count, so a newer build installs over an older one.
 
 The app id is `org.futo.voiceinput.custom`, so it installs next to the official app. To keep updates installing over each other, add your own signing key as the `KEYSTORE_FILE` (base64), `KEYSTORE_PASSWORD`, `KEY_PASSWORD` and `KEYSTORE_ALIAS` repository secrets. Otherwise a cached debug key is used.
 

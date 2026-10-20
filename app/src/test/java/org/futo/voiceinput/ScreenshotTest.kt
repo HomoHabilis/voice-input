@@ -55,6 +55,9 @@ class ScreenshotTest {
     val compose = createComposeRule()
 
     private fun capture(name: String, content: @Composable () -> Unit) {
+        // Screens have endless animations (mic pulse, progress), so drive the clock by hand
+        // instead of waiting for idle, which would never come.
+        compose.mainClock.autoAdvance = false
         compose.setContent {
             UixThemeAuto {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -62,7 +65,11 @@ class ScreenshotTest {
                 }
             }
         }
-        compose.waitForIdle()
+        // Let settings load from DataStore (background thread) and animations progress
+        repeat(20) {
+            compose.mainClock.advanceTimeBy(100)
+            Thread.sleep(25)
+        }
 
         val bitmap = compose.onRoot().captureToImage().asAndroidBitmap()
         val dir = File("screenshots").apply { mkdirs() }

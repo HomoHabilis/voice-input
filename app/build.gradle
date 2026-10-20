@@ -117,6 +117,10 @@ android {
             all {
                 systemProperty 'robolectric.graphicsMode', 'NATIVE'
                 maxHeapSize = '3g'
+                testLogging {
+                    events 'failed'
+                    exceptionFormat 'full'
+                }
             }
         }
     }

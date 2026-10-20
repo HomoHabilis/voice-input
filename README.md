@@ -15,7 +15,11 @@ Pick the engine in the app under **Model**. The model downloads the first time y
 - **FUTO Keyboard** (closest to Gboard: swipe typing, good predictions): turn off its built-in voice input and its mic key will use this app.
 - **HeliBoard** and other open-source keyboards: their mic key opens this app's voice keyboard.
 
-**Get the APK**: every push builds `voice-input-custom.apk` in GitHub Actions and attaches it to a pre-release named `build-<branch>`. The app id is `org.futo.voiceinput.custom`, so it installs next to the official app.
+**Make a release**: on GitHub, open **Actions → Build APK → Run workflow**, pick the branch, type a version such as `1.2.1` (and optional notes), and run it. The workflow builds the APK with that version and publishes release `v1.2.1` with `voice-input-custom-1.2.1.apk`, install steps and the APK's SHA-256. Each release gets a higher version code, so it installs as an update. Leave the version empty for a test build.
+
+**Test builds**: every push builds `voice-input-custom.apk` and attaches it to a pre-release named `build-<branch>`.
+
+The app id is `org.futo.voiceinput.custom`, so it installs next to the official app. To keep updates installing over each other, add your own signing key as the `KEYSTORE_FILE` (base64), `KEYSTORE_PASSWORD`, `KEY_PASSWORD` and `KEYSTORE_ALIAS` repository secrets. Otherwise a cached debug key is used.
 
 **Build locally**: `git submodule update --init libs && ./scripts/fetch-native-deps.sh && ./gradlew assembleCustomRelease`. `./gradlew testCustomDebugUnitTest --tests org.futo.voiceinput.ScreenshotTest` renders the screens to `app/screenshots/` without a phone; the latest ones are in [docs/screenshots](docs/screenshots).
 

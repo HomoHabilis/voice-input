@@ -151,7 +151,13 @@ android {
         custom {
             dimension "version"
             applicationIdSuffix ".custom"
-            versionNameSuffix "-custom"
+            // The release workflow passes -PappVersionName=1.2.1 -PappVersionCode=<n>
+            if (project.hasProperty('appVersionName')) {
+                versionName project.property('appVersionName')
+                versionCode project.property('appVersionCode').toInteger()
+            } else {
+                versionNameSuffix "-custom"
+            }
         }
     }
 

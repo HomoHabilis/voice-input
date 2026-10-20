@@ -35,7 +35,8 @@ add_library(${CMAKE_PROJECT_NAME} SHARED
         ggml/ggml-alloc.c
         ggml/ggml-backend.c
         ggml/ggml-quants.c
-        jni_common.cpp)
+        jni_common.cpp
+        whistle_jni.cpp)
 
 if(ANDROID_ABI STREQUAL armeabi-v7a)
     set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES COMPILE_FLAGS -mfpu=neon)
@@ -49,3 +50,21 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
     # List libraries link to the target library
     android
     log)
+
+# Cactus Needle engine (runs the Whistle model). scripts/fetch-native-deps.sh downloads the
+# prebuilt static library from Hugging Face into third_party/needle/<platform>/. Without it the
+# app still builds and Whistle reports itself as unavailable.
+if(ANDROID_ABI STREQUAL arm64-v8a)
+    set(NEEDLE_PLATFORM android-arm64)
+elseif(ANDROID_ABI STREQUAL armeabi-v7a)
+    set(NEEDLE_PLATFORM android-armv7)
+endif()
+set(NEEDLE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../../../third_party/needle/${NEEDLE_PLATFORM})
+file(GLOB NEEDLE_STATIC_LIBS ${NEEDLE_DIR}/*.a)
+if(NEEDLE_PLATFORM AND NEEDLE_STATIC_LIBS)
+    message(STATUS "Linking Cactus Needle engine: ${NEEDLE_STATIC_LIBS}")
+    target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE HAVE_NEEDLE=1)
+    target_link_libraries(${CMAKE_PROJECT_NAME} ${NEEDLE_STATIC_LIBS} m dl)
+else()
+    message(WARNING "Cactus Needle engine not found in ${NEEDLE_DIR}; Whistle will be unavailable")
+endif()

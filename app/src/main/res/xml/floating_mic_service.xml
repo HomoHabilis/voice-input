@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Floating mic bubble: watches which text field has focus and whether a keyboard is open,
+     so it can show a mic button above any keyboard (e.g. Gboard) and type the result. -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeViewFocused|typeWindowStateChanged|typeWindowsChanged|typeViewTextSelectionChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="100"
+    android:description="@string/floating_mic_service_description"
+    android:summary="@string/floating_mic_service_summary"
+    android:settingsActivity="org.futo.voiceinput.settings.SettingsActivity" />

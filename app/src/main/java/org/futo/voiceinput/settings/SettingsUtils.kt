@@ -148,6 +148,7 @@ fun SettingsMain(
         composable("models") { ModelsScreen(settingsViewModel, navController) }
         composable("input") { InputScreen(settingsViewModel, navController) }
         composable("themes") { ThemeScreen(navController) }
+        composable("integration") { org.futo.voiceinput.settings.pages.IntegrationScreen(navController) }
 
         composable("credits") {
             CreditsScreen(openDependencies = {

@@ -52,3 +52,8 @@ app/release/*.apk
 app/release/*.zip
 keystore.properties
 crashreporting.properties
+# Prebuilt speech engines fetched by scripts/fetch-native-deps.sh
+/third_party/
+/app/src/main/jniLibs/
+# Screenshots rendered by the Robolectric tests (CI copies them to docs/screenshots)
+/app/screenshots/

@@ -134,6 +134,20 @@ fun Context.startModelDownloadActivity(models: List<ModelData>) {
     startActivity(intent)
 }
 
+fun Context.startEngineDownloadActivity(engine: org.futo.voiceinput.engines.SpeechEngine) {
+    val files = engine.files.map { it.name }.filter { fileNeedsDownloading(it) }
+    if(files.isEmpty()) return
+
+    val intent = Intent(this, DownloadActivity::class.java)
+    intent.putStringArrayListExtra("models", ArrayList(files))
+
+    if(this !is Activity) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    startActivity(intent)
+}
+
 fun <T> Context.startAppActivity(activity: Class<T>, clearTop: Boolean = false) {
     val intent = Intent(this, activity)
 

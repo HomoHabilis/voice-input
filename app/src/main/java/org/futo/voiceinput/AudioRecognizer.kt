@@ -26,6 +26,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
+import org.futo.voiceinput.engines.EngineUnavailableException
+import org.futo.voiceinput.engines.ParakeetEngine
+import org.futo.voiceinput.engines.SpeechEngine
+import org.futo.voiceinput.engines.TranscriptionModel
+import org.futo.voiceinput.engines.WhisperEngine
+import org.futo.voiceinput.engines.WhistleEngine
+import org.futo.voiceinput.engines.engineFilesMissing
 import org.futo.voiceinput.ggml.DecodingMode
 import org.futo.voiceinput.ml.RunState
 import org.futo.voiceinput.ml.WhisperModelWrapper
@@ -38,6 +45,7 @@ import org.futo.voiceinput.settings.IS_VAD_ENABLED
 import org.futo.voiceinput.settings.LANGUAGE_TOGGLES
 import org.futo.voiceinput.settings.MULTILINGUAL_MODEL_INDEX
 import org.futo.voiceinput.settings.PERSONAL_DICTIONARY
+import org.futo.voiceinput.settings.SPEECH_ENGINE
 import org.futo.voiceinput.settings.USE_LANGUAGE_SPECIFIC_MODELS
 import org.futo.voiceinput.settings.getSetting
 import java.io.IOException
@@ -63,7 +71,7 @@ abstract class AudioRecognizer {
         return isRecording
     }
 
-    private var model: WhisperModelWrapper? = null
+    private var model: TranscriptionModel? = null
 
     private var floatSamples: FloatBuffer = FloatBuffer.allocate(16000 * 30)
     private var recorderJob: Job? = null
@@ -100,6 +108,11 @@ abstract class AudioRecognizer {
     protected abstract fun updateMagnitude(magnitude: Float, state: MagnitudeState)
 
     protected abstract fun processing()
+
+    /** Called when the selected engine cannot run (e.g. its native library is missing). */
+    protected open fun engineUnavailable(message: String) {
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+    }
 
     private var isVADPaused = false
     fun pauseVAD(v: Boolean) {
@@ -188,7 +201,7 @@ abstract class AudioRecognizer {
     private suspend fun tryLoadModelOrCancel(primaryModel: ModelData, secondaryModelP: ModelData?) {
         val secondaryModel = if(context.getSetting(USE_LANGUAGE_SPECIFIC_MODELS)) { secondaryModelP } else { null }
         try {
-            model = WhisperModelWrapper(
+            model = WhisperEngine(WhisperModelWrapper(
                 context,
                 primaryModel,
                 secondaryModel,
@@ -204,7 +217,7 @@ abstract class AudioRecognizer {
                         }
                     }
                 }
-            )
+            ))
         } catch (e: IOException) {
             context.startModelDownloadActivity(
                 listOf(primaryModel).let {
@@ -216,8 +229,37 @@ abstract class AudioRecognizer {
         }
     }
 
+    /** Loads Parakeet or Whistle. Returns false if the user selected Whisper. */
+    private suspend fun tryLoadAlternativeEngine(): Boolean {
+        val engine = SpeechEngine.fromId(context.getSetting(SPEECH_ENGINE))
+        if (engine == SpeechEngine.Whisper) return false
+
+        try {
+            model = when (engine) {
+                SpeechEngine.Parakeet -> ParakeetEngine.load(context)
+                SpeechEngine.Whistle -> WhistleEngine.load(context, context.getSetting(LANGUAGE_TOGGLES))
+                SpeechEngine.Whisper -> throw IllegalStateException()
+            }
+        } catch (e: IOException) {
+            if (context.engineFilesMissing(engine).isNotEmpty()) {
+                context.startEngineDownloadActivity(engine)
+            } else {
+                withContext(Dispatchers.Main) { engineUnavailable(e.message ?: e.toString()) }
+            }
+            withContext(Dispatchers.Main) { cancelRecognizer() }
+        } catch (e: EngineUnavailableException) {
+            withContext(Dispatchers.Main) {
+                engineUnavailable(e.message ?: e.toString())
+                cancelRecognizer()
+            }
+        }
+        return true
+    }
+
     private suspend fun loadModelInner() {
         try {
+            if (tryLoadAlternativeEngine()) return
+
             val englishModelIdx = context.getSetting(ENGLISH_MODEL_INDEX)
             val multilingualModelIdx = context.getSetting(MULTILINGUAL_MODEL_INDEX)
             val languages = context.getSetting(LANGUAGE_TOGGLES)

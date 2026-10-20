@@ -1,3 +1,26 @@
+# FUTO Voice Input, custom build: Parakeet + Whistle + Whisper
+
+This fork adds two newer on-device speech engines next to the original Whisper, and a floating mic that works with Gboard.
+
+| Engine | Best for | Download on phone |
+|---|---|---|
+| **Parakeet TDT 0.6B v3** (NVIDIA, via [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)) | Best accuracy and speed; English + 24 European languages | ~640 MB |
+| **Whistle** ([Cactus](https://github.com/cactus-compute/needle)) | Smallest and fastest; en, de, fr, es, it, nl, pl; uses the personal dictionary as keywords | 17 MB |
+| **Whisper** (OpenAI, via whisper.cpp) | 99 languages | 40-250 MB |
+
+Pick the engine in the app under **Model**. The model downloads the first time you use it, and everything runs offline after that.
+
+**Using it with your keyboard** (in the app under **Keyboard integration**):
+- **Gboard**: Gboard always sends its own mic key to Google. Turn on the **floating mic** (an accessibility service). A mic bubble then appears above the keyboard, and the transcript is typed at your cursor. You can also switch to the "FUTO Voice Input" keyboard from Gboard's language key.
+- **FUTO Keyboard** (closest to Gboard: swipe typing, good predictions): turn off its built-in voice input and its mic key will use this app.
+- **HeliBoard** and other open-source keyboards: their mic key opens this app's voice keyboard.
+
+**Get the APK**: every push builds `voice-input-custom.apk` in GitHub Actions and attaches it to a pre-release named `build-<branch>`. The app id is `org.futo.voiceinput.custom`, so it installs next to the official app.
+
+**Build locally**: `git submodule update --init libs && ./scripts/fetch-native-deps.sh && ./gradlew assembleCustomRelease`. `./gradlew testCustomDebugUnitTest --tests org.futo.voiceinput.ScreenshotTest` renders the screens to `app/screenshots/` without a phone; the latest ones are in [docs/screenshots](docs/screenshots).
+
+---
+
 # FUTO Voice Input
 
 FUTO Voice Input is an application that lets you do speech-to-text on Android, integrating with third party keyboards or apps that use the generic speech-to-text APIs.

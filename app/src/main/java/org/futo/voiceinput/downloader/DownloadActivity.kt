@@ -37,6 +37,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.futo.voiceinput.R
+import org.futo.voiceinput.engines.modelUrlFor
 import org.futo.voiceinput.fileNeedsDownloading
 import org.futo.voiceinput.settings.ScreenTitle
 import org.futo.voiceinput.settings.ScrollableList
@@ -232,6 +233,14 @@ class DownloadActivity : ComponentActivity() {
                 }
 
                 override fun onResponse(call: Call, response: Response) {
+                    if (!response.isSuccessful) {
+                        println("Bad response code ${response.code} for ${it.url}")
+                        it.error = true
+                        response.close()
+                        lifecycleScope.launch { withContext(Dispatchers.Main) { updateContent() } }
+                        return
+                    }
+
                     response.body?.source()?.let { source ->
 
                         try {
@@ -247,27 +256,41 @@ class DownloadActivity : ComponentActivity() {
                             File.createTempFile(fileName, null, this@DownloadActivity.cacheDir)
                         val os = file.outputStream()
 
-                        val buffer = ByteArray(128 * 1024)
-                        var downloaded = 0
-                        while (true) {
-                            val read = source.read(buffer)
-                            if (read == -1) {
-                                break
-                            }
+                        try {
+                            val buffer = ByteArray(128 * 1024)
+                            var downloaded = 0L
+                            var lastShownProgress = -1.0f
+                            while (true) {
+                                val read = source.read(buffer)
+                                if (read == -1) {
+                                    break
+                                }
 
-                            os.write(buffer.sliceArray(0 until read))
+                                os.write(buffer, 0, read)
 
-                            downloaded += read
+                                downloaded += read
 
-                            if (it.size != null) {
-                                it.progress = downloaded.toFloat() / it.size!!.toFloat()
-                            }
+                                if (it.size != null) {
+                                    it.progress = downloaded.toFloat() / it.size!!.toFloat()
+                                }
 
-                            lifecycleScope.launch {
-                                withContext(Dispatchers.Main) {
-                                    updateContent()
+                                // Large models (Parakeet is ~640 MB): only redraw every 0.5%
+                                if (it.progress - lastShownProgress >= 0.005f) {
+                                    lastShownProgress = it.progress
+                                    lifecycleScope.launch {
+                                        withContext(Dispatchers.Main) {
+                                            updateContent()
+                                        }
+                                    }
                                 }
                             }
+                        } catch (e: IOException) {
+                            e.printStackTrace()
+                            os.close()
+                            file.delete()
+                            it.error = true
+                            lifecycleScope.launch { withContext(Dispatchers.Main) { updateContent() } }
+                            return
                         }
 
                         it.finished = true
@@ -275,7 +298,12 @@ class DownloadActivity : ComponentActivity() {
                         os.flush()
                         os.close()
 
-                        assert(file.renameTo(File(this@DownloadActivity.filesDir, it.name)))
+                        val target = File(this@DownloadActivity.filesDir, it.name)
+                        // cacheDir and filesDir are on the same partition; fall back to a copy if not
+                        if (!file.renameTo(target)) {
+                            file.copyTo(target, overwrite = true)
+                            file.delete()
+                        }
 
                         if (modelsToDownload.all { a -> a.finished }) {
                             downloadsFinished()
@@ -339,7 +367,7 @@ class DownloadActivity : ComponentActivity() {
         modelsToDownload = models.filter { this.fileNeedsDownloading(it) }.map {
             ModelInfo(
                 name = it,
-                url = "https://voiceinput.futo.org/VoiceInput/${it}",
+                url = modelUrlFor(it),
                 size = null,
                 progress = 0.0f
             )

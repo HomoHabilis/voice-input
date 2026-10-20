@@ -183,7 +183,11 @@ fun IntegrationScreenContent(
             "Voice keyboard",
             status = if (state.voiceKeyboardEnabled) "Enabled" else "Not enabled"
         ) {
-            Body("Needed for HeliBoard, AOSP and similar keyboards. Also works from Gboard: turn on Gboard's language switch key, then long-press it (or the space bar) and pick FUTO Voice Input. It records, types the text and switches back.")
+            Body("Needed for HeliBoard, AOSP and similar keyboards. Also a second way to dictate from Gboard, without the floating mic:")
+            Body("1. Tap Keyboard settings below and turn on \"FUTO Voice Input Method\".")
+            Body("2. In Gboard, tap the globe key, or long-press the space bar, then pick FUTO Voice Input Method. On Pixel you can also tap the small keyboard icon at the bottom right of the screen.")
+            Body("3. It starts listening right away, types the text, then switches back to Gboard.")
+            Body("Gboard never lists it under Languages: other apps' keyboards are switched to, not added as a language.")
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(colors = outlinedColors(), onClick = onOpenKeyboardSettings) {
                 Text("Keyboard settings")
